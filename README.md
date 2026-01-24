@@ -10,6 +10,7 @@ This repository demonstrates deep understanding of:
 - Gaussian likelihoods
 - Numerical stability
 - Model calibration
+  
 
 ---
 
