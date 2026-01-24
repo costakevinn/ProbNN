@@ -1,193 +1,134 @@
 # ProbNN — Probabilistic Neural Network for Regression with Uncertainty
 
-**ProbNN** is a **from-scratch probabilistic neural network** implemented in pure Python and NumPy, designed for **regression with heteroscedastic uncertainty**.  
-The project emphasizes **mathematical clarity**, **explicit backpropagation**, and **likelihood-based training**, making it suitable for **scientific computing**, **machine learning engineering**, and **uncertainty-aware modeling**.
+ProbNN is a **probabilistic neural network framework** for **regression with uncertainty quantification**, designed to model both **predictive mean** and **heteroscedastic uncertainty** using a fully differentiable neural architecture.
 
-This repository demonstrates deep understanding of:
-- Neural Networks (forward / backward pass)
-- Gradient-based optimization
-- Probabilistic modeling
-- Gaussian likelihoods
-- Numerical stability
-- Model calibration
-  
+The project focuses on **statistical learning**, **gradient-based optimization**, and **probabilistic modeling**, combining classical neural networks with an explicit likelihood-based training objective.  
+It is particularly suited for regression problems where **noise varies across the input space**, **local and global structures coexist**, or **discontinuities and sharp transitions** are present.
 
 ---
 
-## Problem Definition
+## Probabilistic Regression Model
 
-Given a regression dataset with observational uncertainty:
-
+Given observations  
 \[
-\mathcal{D} = \{(x_i, y_i, \delta y_i)\}_{i=1}^N
+\mathcal{D} = \{(x_i, y_i, \delta y_i)\}_{i=1}^N,
 \]
-
-the goal is to learn a **predictive distribution**, not just a point estimate:
+ProbNN models the conditional distribution of targets as
 
 \[
-p(y \mid x, \mathcal{D}) = \mathcal{N}\big(\mu(x), \ \delta y^2 + \sigma^2(x)\big)
+p(y \mid x) = \mathcal{N}\big(\mu(x), \; \delta y^2 + \sigma^2(x)\big),
 \]
 
 where:
-- \( \mu(x) \) is the predictive mean,
-- \( \sigma(x) \) is the **model uncertainty**, learned directly by the neural network,
-- \( \delta y \) represents known observational noise.
 
-This formulation is critical in **real-world regression problems**, where uncertainty is intrinsic to the data.
+- \(\mu(x)\) is the **predictive mean**, learned by a neural network  
+- \(\sigma(x)\) is the **model uncertainty**, also learned by the network  
+- \(\delta y\) represents known **observational noise**  
+
+This formulation enables **heteroscedastic regression**, allowing the model to adapt uncertainty locally rather than assuming constant noise.
 
 ---
 
 ## Neural Network Architecture
 
-ProbNN implements a **fully connected feedforward neural network** composed of:
+ProbNN uses a **shared dense trunk** followed by two independent output heads:
 
-### 1. Shared Trunk (Feature Extractor)
-
-A sequence of dense layers:
-
-\[
-z^{(l)} = W^{(l)} a^{(l-1)} + b^{(l)}, \quad
-a^{(l)} = \phi(z^{(l)})
-\]
-
-where \( \phi \) is a nonlinear activation function (Tanh, ReLU).
-
-### 2. Dual Output Heads
-
-The network branches into two heads:
-
-- **Mean head**
-\[
-\mu(x) = h(x)^\top W_\mu + b_\mu
-\]
-
-- **Log-variance proxy head**
-\[
-s(x) = h(x)^\top W_s + b_s
-\]
-
-To ensure numerical stability and positivity of the standard deviation:
+- **Mean head**: predicts \(\mu(x)\)  
+- **Uncertainty head**: predicts a latent variable \(s(x)\), mapped to \(\sigma(x)\)  
 
 \[
-\sigma(x) = \text{softplus}(s) = \log(1 + e^s)
+\sigma(x) = \text{softplus}(s(x)) + \varepsilon
 \]
+
+The softplus transformation ensures **positivity and numerical stability**, which is essential for probabilistic optimization.
+
+Hidden layers use nonlinear activation functions (e.g. **tanh**, **ReLU**), enabling the network to represent **highly nonlinear functions**, multi-scale behavior, and sharp transitions.
 
 ---
 
-## Activation Functions and Backpropagation
+## Training Objective and Optimization
 
-Each activation function explicitly defines:
-
-- **Forward pass**
-- **Backward pass (derivative)**
-
-Example (Tanh):
+Training is performed by minimizing the **Gaussian negative log-likelihood (NLL)**:
 
 \[
-\phi(z) = \tanh(z), \quad
-\frac{d\phi}{dz} = 1 - \tanh^2(z)
-\]
-
-During training, gradients flow backward through:
-- output heads,
-- dense layers,
-- activation derivatives,
-
-via the **chain rule**, forming the core of **backpropagation**.
-
-This project does **not** rely on automatic differentiation frameworks — all gradients are computed explicitly.
-
----
-
-## Probabilistic Loss Function
-
-Training minimizes the **Gaussian Negative Log-Likelihood (NLL)**:
-
-\[
-\mathcal{L} =
-\frac{1}{2N} \sum_{i=1}^N
+\mathcal{L}
+= \frac{1}{2N} \sum_{i=1}^N
 \left[
 \frac{(y_i - \mu_i)^2}{\delta y_i^2 + \sigma_i^2}
 + \log(\delta y_i^2 + \sigma_i^2)
 \right]
++ \lambda_\sigma \, \|s\|^2
 \]
 
-Additional regularization terms:
-- **Variance regularization** to avoid collapse:
-\[
-\lambda_\sigma \langle s^2 \rangle
-\]
-- **L2 weight decay** for numerical stability.
+This objective balances:
 
-This loss tightly couples:
-- prediction accuracy,
-- uncertainty estimation,
-- numerical robustness.
+- **Data fidelity** via the squared residual term  
+- **Uncertainty calibration** via the log-variance term  
+- **Regularization** of the uncertainty head to prevent pathological solutions  
+
+Gradients are computed analytically via **backpropagation**, using the chain rule through:
+
+- the likelihood function  
+- the softplus and sigmoid nonlinearities  
+- the activation functions in each hidden layer  
+
+Parameters (weights and biases) are updated using **stochastic gradient descent**, making the entire training process fully differentiable and scalable.
 
 ---
 
-## Optimization Strategy
+## Forward and Backward Propagation (Conceptual View)
 
-Parameters are optimized using **gradient descent (SGD)**:
+During training:
 
-\[
-\theta \leftarrow \theta - \eta \nabla_\theta \mathcal{L}
-\]
+1. Inputs propagate forward through the trunk network  
+2. The network outputs \(\mu(x)\) and \(s(x)\)  
+3. The probabilistic loss evaluates data fit and uncertainty  
+4. Gradients flow backward:
+   - from the likelihood to \(\mu\) and \(\sigma\)
+   - through softplus and activation derivatives
+   - back into all network weights  
 
-Key properties:
-- Gradients computed analytically
-- Local updates per parameter
-- Stable convergence under noisy and discontinuous targets
+This tight coupling between **optimization**, **probability theory**, and **neural computation** is the core design of ProbNN.
 
 ---
 
-## Model Diagnostics: Normalized Residuals
+## Diagnostic Residuals
 
-Calibration is evaluated using **normalized residuals**:
-
-\[
-r_i =
-\frac{y_i - \mu(x_i)}
-{\sqrt{\delta y_i^2 + \sigma(x_i)^2}}
-\]
-
-For a well-calibrated probabilistic model:
+Model quality is evaluated using **normalized residuals**:
 
 \[
-r_i \sim \mathcal{N}(0, 1)
+r_i = \frac{y_i - \mu(x_i)}{\sqrt{\delta y_i^2 + \sigma^2(x_i)}}
 \]
 
-This provides a **statistical validation** of uncertainty estimates.
+If the probabilistic model is well calibrated, residuals should approximately follow a **standard normal distribution**, providing a principled statistical diagnostic beyond visual inspection.
 
 ---
 
 ## Example: Discontinuous Regression Benchmark
 
-This example demonstrates the framework’s ability to handle:
-- sharp discontinuities,
-- smooth global trends,
-- extrapolation,
-- numerical instability risks.
+The following example demonstrates ProbNN on a **discontinuous target function** with both smooth and abrupt components — a setting that is challenging for classical regression models.
 
-### Predictive Fit (Benchmark View)
+### Predictive Fit with Ground Truth (Benchmark)
 
-![Discontinuous Fit](plots/fit_discontinuous_truth.png)
+![Discontinuous benchmark](plots/fit_discontinuous_truth.png)
 
-**Interpretation:**
-- The network captures global structure.
-- Predictive uncertainty increases near the discontinuity.
-- Extrapolation uncertainty grows outside data support.
+In this example, the network successfully captures:
+
+- **Global structure** of the function across the full domain  
+- **Local behavior** near the discontinuity  
+- A sharp jump without oscillatory artifacts  
+- Increased predictive uncertainty around difficult regions  
+
+This illustrates the model’s ability to reconcile **local non-smooth features** with **global function learning**, a common challenge in real-world regression tasks.
 
 ---
 
-### Training Loss Convergence
+### Training Dynamics
 
-![Loss](plots/loss_discontinuous.png)
+![Training loss](plots/loss_discontinuous.png)
 
-**Interpretation:**
-- Stable optimization despite non-smooth target.
-- No divergence or numerical collapse.
-- Smooth convergence under probabilistic loss.
+The loss curve shows stable convergence under a likelihood-based objective, even in the presence of discontinuities.  
+Careful control of learning rate and uncertainty regularization ensures numerical stability and robust optimization.
 
 ---
 
@@ -195,45 +136,53 @@ This example demonstrates the framework’s ability to handle:
 
 ![Residuals](plots/residuals_discontinuous.png)
 
-**Interpretation:**
-- Residuals approximately follow a standard normal distribution.
-- Indicates correct uncertainty calibration.
-- Confirms consistency between likelihood and predictions.
+Residuals remain approximately centered and symmetric, indicating that both the mean prediction and the learned uncertainty are statistically consistent with the data.
+
+---
+
+## Key Capabilities Demonstrated
+
+ProbNN explicitly addresses several practical challenges in applied machine learning:
+
+- Learning **nonlinear regression functions**  
+- Modeling **heteroscedastic uncertainty**  
+- Handling **discontinuities and sharp transitions**  
+- Maintaining **training stability** under difficult optimization regimes  
+- Providing **probabilistic diagnostics**, not just point estimates  
+
+These properties make the framework well suited for scientific modeling, engineering regression, and data-driven systems where uncertainty matters.
+
+---
+
+## Usage
+
+```bash
+python main.py
+````
+
+This runs all benchmark examples and generates:
+
+* Predictive fits
+* Loss curves
+* Residual diagnostics
+
+All outputs are saved automatically to `plots/` and `results/`.
 
 ---
 
 ## Project Structure
 
 ```
-
 ProbNN/
-├── activation.py     # Activation functions + derivatives
-├── nn.py             # Training, backpropagation, prediction
-├── utils.py          # Numerical utilities, plots, diagnostics
-├── examples.py       # Benchmark experiments
-├── main.py           # Entry point
+├── activation.py     # Activation functions and derivatives
+├── nn.py             # Neural network, loss, training, prediction
+├── examples.py       # Regression benchmarks
+├── utils.py          # Plotting and diagnostics
 ├── plots/            # Generated figures
 ├── results/          # Numerical outputs
+├── main.py           # Entry point
 └── requirements.txt
-
 ```
-
----
-
-## Why This Project Matters
-
-ProbNN demonstrates:
-- Deep understanding of **neural network fundamentals**
-- Practical use of **probabilistic machine learning**
-- Ability to design **numerically stable models**
-- Experience with **scientific ML and uncertainty quantification**
-
-This project is well-suited for roles involving:
-- Machine Learning Engineering
-- Data Science
-- Applied Research
-- Scientific Computing
-- Quantitative Modeling
 
 ---
 
