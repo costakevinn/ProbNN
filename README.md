@@ -1,4 +1,4 @@
-# ProbNN — Probabilistic Neural Network for Regression with Uncertainty
+# ProbNN — Probabilistic Neural Network Regression
 
 ProbNN is a **probabilistic neural network framework** for **regression with uncertainty quantification**, designed to model both **predictive mean** and **heteroscedastic uncertainty** using a fully differentiable neural architecture.
 
