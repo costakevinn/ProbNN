@@ -188,4 +188,4 @@ ProbNN/
 
 ## License
 
-MIT License
+MIT License — see `LICENSE` for details.
