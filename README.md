@@ -13,16 +13,6 @@ This repository demonstrates deep understanding of:
 
 ---
 
-## Keywords (ATS / Recruiter-Oriented)
-
-**Machine Learning**, **Neural Networks**, **Backpropagation**, **Gradient Descent**,  
-**Probabilistic Modeling**, **Uncertainty Quantification**, **Heteroscedastic Noise**,  
-**Gaussian Negative Log-Likelihood**, **Numerical Optimization**,  
-**Scientific Computing**, **From Scratch Implementation**, **NumPy**,  
-**Model Calibration**, **Residual Analysis**, **Regression**, **Deep Learning Fundamentals**
-
----
-
 ## Problem Definition
 
 Given a regression dataset with observational uncertainty:
