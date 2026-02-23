@@ -164,10 +164,15 @@ Residuals remain approximately centered and symmetric, indicating consistent mea
 ## 🛠 Tech Stack
 
 Python
+
 NumPy
+
 Gradient-based optimization
+
 Statistical modeling
+
 Likelihood maximization
+
 Diagnostic visualization
 
 ---
