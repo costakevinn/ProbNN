@@ -10,8 +10,11 @@ It jointly learns:
 The framework is designed for regression tasks where predictive confidence matters as much as accuracy.
 
 Author: Kevin Mota da Costa
+
 Portfolio: [https://costakevinn.github.io](https://costakevinn.github.io)
-LinkedIn: [https://linkedin.com/in/SEUUSER](https://linkedin.com/in/SEUUSER)
+
+LinkedIn: [https://linkedin.com/in/costakevinnn](https://linkedin.com/in/costakevinnn)
+
 
 ---
 
