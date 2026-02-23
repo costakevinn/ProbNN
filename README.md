@@ -1,8 +1,13 @@
-# 🚀 ProbNN — Probabilistic Neural Network for Heteroscedastic Regression
+# 🚀 ProbNN — Probabilistic Neural Network for Uncertainty-Aware Regression
 
-ProbNN is a probabilistic neural network framework designed for regression with explicit uncertainty quantification.
+ProbNN is a probabilistic neural network framework for regression with explicit uncertainty modeling.
 
-It models both predictive mean and heteroscedastic uncertainty within a fully differentiable architecture, combining statistical modeling, likelihood-based training, and gradient-driven optimization.
+It jointly learns:
+
+* Predictive mean
+* Heteroscedastic (input-dependent) uncertainty
+
+The framework is designed for regression tasks where predictive confidence matters as much as accuracy.
 
 Author: Kevin Mota da Costa
 Portfolio: [https://costakevinn.github.io](https://costakevinn.github.io)
@@ -12,89 +17,72 @@ LinkedIn: [https://linkedin.com/in/SEUUSER](https://linkedin.com/in/SEUUSER)
 
 ## 🎯 Project Purpose
 
-ProbNN was developed to explore regression under realistic noise conditions, where:
+ProbNN was developed to explore regression under realistic noise conditions, including:
 
-* Variance changes across the input space
-* Discontinuities or sharp transitions exist
-* Local and global structures coexist
-* Predictive confidence matters as much as accuracy
+* Nonlinear functions
+* Discontinuities and sharp transitions
+* Input-dependent variance
+* Multi-scale structure
 
-The project emphasizes probabilistic reasoning, analytical gradients, and controlled optimization dynamics — reflecting a statistical-first approach to machine learning.
+Instead of minimizing Mean Squared Error, the model is trained via likelihood maximization, enabling principled uncertainty calibration.
+
+This project reflects a statistical-first approach to machine learning systems.
 
 ---
 
-## 🧠 Probabilistic Model
+## 🧠 Probabilistic Formulation
 
-Given observations:
+Given observations (x, y, δy), the model assumes:
 
-[
-\mathcal{D} = {(x_i, y_i, \delta y_i)}_{i=1}^N
-]
-
-ProbNN models the conditional distribution as:
-
-[
-p(y \mid x) = \mathcal{N}\big(\mu(x), \delta y^2 + \sigma^2(x)\big)
-]
+p(y | x) = Normal( μ(x), δy² + σ(x)² )
 
 Where:
 
-* (\mu(x)) → predictive mean (neural output)
-* (\sigma(x)) → learned model uncertainty
-* (\delta y) → known observational noise
+* μ(x) → predictive mean (neural output)
+* σ(x) → learned model uncertainty
+* δy → known observational noise
 
-This formulation enables heteroscedastic regression, allowing the model to adapt uncertainty locally instead of assuming constant variance.
+This enables heteroscedastic regression, allowing the model to adapt uncertainty locally rather than assuming constant noise across the dataset.
 
 ---
 
 ## 🏗 Network Architecture
 
-The architecture consists of:
+ProbNN uses:
 
-* Shared dense trunk (feature representation)
-* Mean head → predicts (\mu(x))
-* Uncertainty head → predicts latent (s(x))
+* Shared dense trunk (feature extractor)
+* Mean head → predicts μ(x)
+* Uncertainty head → predicts latent s(x)
 
-Uncertainty is enforced positive via:
+Uncertainty is mapped using:
 
-[
-\sigma(x) = \text{softplus}(s(x)) + \varepsilon
-]
+σ(x) = softplus(s(x)) + ε
 
-Design considerations:
+Design choices:
 
-* Softplus ensures numerical stability
-* Regularization prevents variance inflation
+* Softplus ensures positivity and numerical stability
+* Separate heads prevent interference between mean and variance learning
 * Nonlinear activations (tanh / ReLU) allow multi-scale representation
 
-The architecture is fully differentiable and optimized end-to-end.
+The entire system is fully differentiable and trained end-to-end.
 
 ---
 
 ## 📉 Training Objective
 
-Training minimizes the Gaussian Negative Log-Likelihood (NLL):
+The model minimizes the Gaussian Negative Log-Likelihood (NLL):
 
-[
-\mathcal{L}
-= \frac{1}{2N} \sum_{i=1}^N
-\left[
-\frac{(y_i - \mu_i)^2}{\delta y_i^2 + \sigma_i^2}
-
-* \log(\delta y_i^2 + \sigma_i^2)
-  \right]
-* \lambda_\sigma |s|^2
-  ]
+L = 1/(2N) Σ [ (y − μ)² / (δy² + σ²) + log(δy² + σ²) ] + λ ||s||²
 
 This objective balances:
 
 * Data fidelity (residual term)
 * Uncertainty calibration (log-variance term)
-* Regularization for stability
+* Regularization of the uncertainty head
 
 Optimization is performed via stochastic gradient descent with full backpropagation through:
 
-* Likelihood function
+* Likelihood computation
 * Softplus transformation
 * Activation derivatives
 * All network parameters
@@ -103,27 +91,29 @@ Optimization is performed via stochastic gradient descent with full backpropagat
 
 ## 🔄 Training Mechanics (System View)
 
-1. Forward pass through trunk
-2. Dual-head outputs ((\mu, s))
-3. Likelihood evaluation
-4. Analytical gradient computation
-5. Parameter updates via SGD
+1. Forward pass through trunk network
+2. Dual-head output (mean and variance)
+3. Likelihood-based loss evaluation
+4. Gradient computation
+5. Parameter updates
 
-This tight coupling between probability theory and optimization is the core engineering design of ProbNN.
+This tight integration of probability theory and gradient-based optimization is the core design of ProbNN.
 
 ---
 
 ## 📊 Diagnostics & Evaluation
 
-Model calibration is evaluated using normalized residuals:
+Model quality is evaluated using normalized residuals:
 
-[
-r_i = \frac{y_i - \mu(x_i)}{\sqrt{\delta y_i^2 + \sigma^2(x_i)}}
-]
+r = (y − μ(x)) / sqrt(δy² + σ(x)²)
 
-If properly calibrated, residuals approximate a standard normal distribution.
+If the model is well calibrated:
 
-This provides a principled statistical diagnostic beyond traditional regression metrics.
+* Residuals are centered around zero
+* Variance approximates one
+* Distribution resembles standard normal
+
+This provides a principled statistical diagnostic beyond simple regression metrics.
 
 ---
 
@@ -133,11 +123,11 @@ This provides a principled statistical diagnostic beyond traditional regression 
 
 ![Discontinuous benchmark](plots/fit_discontinuous_truth.png)
 
-The model successfully captures:
+The model captures:
 
-* Global smooth structure
-* Sharp discontinuities
-* Multi-scale nonlinear behavior
+* Global structure across the full domain
+* Local nonlinear behavior
+* Sharp discontinuities without oscillatory artifacts
 * Increased uncertainty near difficult regions
 
 ---
@@ -146,9 +136,7 @@ The model successfully captures:
 
 ![Training loss](plots/loss_discontinuous.png)
 
-Loss shows stable convergence under likelihood-based optimization, even with discontinuities.
-
-Careful tuning of learning rate and uncertainty regularization ensures numerical robustness.
+The loss shows stable convergence under a likelihood-based objective, even in the presence of discontinuities.
 
 ---
 
@@ -156,18 +144,17 @@ Careful tuning of learning rate and uncertainty regularization ensures numerical
 
 ![Residuals](plots/residuals_discontinuous.png)
 
-Residuals remain centered and symmetric, indicating consistent mean estimation and well-calibrated uncertainty.
+Residuals remain approximately centered and symmetric, indicating consistent mean estimation and well-calibrated uncertainty.
 
 ---
 
 ## 📚 Engineering Decisions
 
-* Likelihood-based objective instead of MSE
+* Likelihood-based training instead of MSE
 * Explicit heteroscedastic modeling
-* Softplus transformation for stability
-* Regularization of variance head
-* Analytical gradient propagation
-* Modular separation of architecture and diagnostics
+* Softplus variance mapping for stability
+* Regularization to prevent variance collapse
+* Modular separation of model and diagnostics
 
 ---
 
@@ -188,7 +175,7 @@ Diagnostic visualization
 python main.py
 ```
 
-Generates:
+Runs benchmark examples and generates:
 
 * Predictive fits
 * Loss curves
